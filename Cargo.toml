@@ -1,5 +1,5 @@
 [package]
-name = "adventofcode2019"
+name = "adventofcode2018"
 version = "0.1.0"
 authors = ["marcus"]
 edition = "2018"
@@ -11,3 +11,4 @@ regex = ""
 chrono = ""
 num = ""
 itertools = ""
+priority-queue = ""
