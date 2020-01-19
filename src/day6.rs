@@ -1,13 +1,13 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use num::Complex;
 
 pub const PARTS: [fn(); 2] = [part1, part2];
 
-fn drawmap(map: &Vec<Vec<Option<(usize, usize)>>>) {
+fn _drawmap(map: &Vec<Vec<Option<(usize, usize)>>>) {
     let alphabet: Vec<_> = "abcdefghijklmnopqrstuvwxyz".chars().collect();
     for line in map.iter() {
         for cell in line.iter() {
@@ -42,17 +42,15 @@ fn _drawmaplen(map: &Vec<Vec<Option<(usize, usize)>>>) {
     }
 }
 
-fn bfs(
-    map: &mut Vec<Vec<Option<(usize, usize)>>>,
-    from: Complex<usize>,
-) {
-    fn ucplx_to_icplx(x: Complex<usize>) -> Complex<isize> {
-        Complex::new(x.re as isize, x.im as isize)
-    }
-    fn icplx_to_ucplx(x: Complex<isize>) -> Complex<usize> {
-        Complex::new(x.re as usize, x.im as usize)
-    }
-    //
+fn ucplx_to_icplx(x: Complex<usize>) -> Complex<isize> {
+    Complex::new(x.re as isize, x.im as isize)
+}
+
+fn icplx_to_ucplx(x: Complex<isize>) -> Complex<usize> {
+    Complex::new(x.re as usize, x.im as usize)
+}
+
+fn bfs(map: &mut Vec<Vec<Option<(usize, usize)>>>, from: Complex<usize>) {
     let dirs = [
         Complex::new(1, 0),
         Complex::new(0, 1),
@@ -69,25 +67,31 @@ fn bfs(
     let mut bestyet: Option<(usize, usize)> = None;
     let mut endpos = from;
     let mut endlen = 0;
+    let mut closest = std::usize::MAX;
     //
-    // println!("{:?}", queue);
     while let Some((npos, nlen)) = queue.pop_front() {
+        if nlen > closest {
+            continue;
+        }
         if let Some((source, restlen)) = map[npos.im][npos.re] {
-            println!("{:?}", npos);
-            if let Some((_, blen)) = bestyet {
-                println!("{:?}", (restlen, nlen, blen));
+            if let Some((bsource, blen)) = bestyet {
                 if restlen + nlen < blen {
                     endpos = npos;
                     endlen = nlen;
-                    bestyet = Some((source, restlen + nlen));
-                } else if restlen + nlen == blen {
+                    if closest > restlen + nlen {
+                        closest = restlen + nlen;
+                        bestyet = Some((source, restlen + nlen));
+                    }
+                } else if restlen + nlen == blen && source != bsource {
                     bestyet = None;
-                    break;
                 }
             } else {
                 endpos = npos;
                 endlen = nlen;
-                bestyet = Some((source, restlen + nlen));
+                if closest > restlen + nlen {
+                    closest = restlen + nlen;
+                    bestyet = Some((source, restlen + nlen));
+                }
             }
         } else {
             for d in dirs.iter() {
@@ -111,7 +115,6 @@ fn bfs(
                 }
             }
         }
-        // println!("{:?}", queue);
     }
     //
     if let Some((source, len)) = bestyet {
@@ -128,13 +131,13 @@ fn bfs(
 
 fn part1() {
     let mut inp: Vec<Complex<usize>> = BufReader::new(
-        File::open("inputfiles/day6/example.txt").expect("File is fucked!"),
+        File::open("inputfiles/day6/input.txt").expect("File is fucked!"),
     )
     .lines()
     .map(|l| l.expect("Line is fucked!"))
     .map(|l| {
-        let mut sp = l.split(", ").map(|s| s.parse());
-        Complex::new(sp.next().unwrap().unwrap(), sp.next().unwrap().unwrap())
+        let mut sp = l.split(", ").map(|s| s.parse().unwrap());
+        Complex::new(sp.next().unwrap(), sp.next().unwrap())
     })
     .collect();
     //
@@ -150,26 +153,87 @@ fn part1() {
         )
     };
     //
-    let mut map: Vec<Vec<Option<(usize, usize)>>> = (0..h)
-        .map(|_| (0..w).map(|_| None).collect())
-        .collect();
+    let mut map: Vec<Vec<Option<(usize, usize)>>> =
+        (0..h).map(|_| (0..w).map(|_| None).collect()).collect();
     //
     for (i, pos) in inp.iter().enumerate() {
         map[pos.im][pos.re] = Some((i, 0));
     }
     //
-    drawmap(&map);
-    println!("--------");
-    //
     for y in 0..h {
         for x in 0..w {
-            println!("x: {}, y: {}", x, y);
             bfs(&mut map, Complex::new(x, y));
         }
     }
-    // bfs(&mut map, Complex::new(4, 0));
     //
-    drawmap(&map);
+    let blacklist: HashSet<_> = (0..w)
+        .map(|i| Complex::new(i, 0))
+        .chain((0..w).map(|i| Complex::new(i, h - 1)))
+        .chain((0..h).map(|i| Complex::new(0, i)))
+        .chain((0..h).map(|i| Complex::new(w - 1, i)))
+        .filter_map(|c| match map[c.im][c.re] {
+            Some((source, _)) => Some(source),
+            _ => None,
+        })
+        .collect();
+    //
+    let mut areas = HashMap::new();
+    //
+    for y in 0..h {
+        for x in 0..w {
+            if let Some((source, _)) = map[y][x] {
+                if !blacklist.contains(&source) {
+                    if let Some(area) = areas.get_mut(&source) {
+                        *area += 1;
+                    } else {
+                        areas.insert(source, 1);
+                    }
+                }
+            }
+        }
+    }
+    //
+    let ans = areas.values().max().unwrap();
+    println!("{}", ans);
 }
 
-fn part2() {}
+fn sumofdist(sources: &Vec<Complex<usize>>, pos: Complex<usize>) -> usize {
+    sources
+        .iter()
+        .map(|&s| (ucplx_to_icplx(s) - ucplx_to_icplx(pos)).l1_norm())
+        .sum::<isize>() as usize
+}
+
+fn part2() {
+    let mut inp: Vec<Complex<usize>> = BufReader::new(
+        File::open("inputfiles/day6/input.txt").expect("File is fucked!"),
+    )
+    .lines()
+    .map(|l| l.expect("Line is fucked!"))
+    .map(|l| {
+        let mut sp = l.split(", ").map(|s| s.parse().unwrap());
+        Complex::new(sp.next().unwrap(), sp.next().unwrap())
+    })
+    .collect();
+    //
+    let (w, h) = {
+        let topleft = Complex::new(
+            inp.iter().min_by(|a, b| a.re.cmp(&b.re)).unwrap().re,
+            inp.iter().min_by(|a, b| a.im.cmp(&b.im)).unwrap().im,
+        );
+        inp.iter_mut().for_each(|x| *x -= topleft);
+        (
+            inp.iter().max_by(|a, b| a.re.cmp(&b.re)).unwrap().re + 1,
+            inp.iter().max_by(|a, b| a.im.cmp(&b.im)).unwrap().im + 1,
+        )
+    };
+    //
+    let ans = (0..h)
+        .map(|y| (0..w).map(move |x| Complex::new(x, y)))
+        .flatten()
+        .map(|pos| sumofdist(&inp, pos))
+        .filter(|&l| l < 10000)
+        .count();
+    //
+    println!("{}", ans);
+}
