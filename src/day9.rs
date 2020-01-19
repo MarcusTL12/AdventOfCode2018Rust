@@ -35,33 +35,65 @@ fn part1() {
     println!("{}", winner);
 }
 
-fn _offsetnode<'a, T>(
-    list: &'a (Vec<(usize, usize, T)>, VecDeque<usize>),
-    mut node: &'a (usize, usize, T),
+fn offsetnode<T>(
+    list: &Vec<(usize, usize, T)>,
+    mut nodeind: usize,
     mut i: isize,
-) -> &'a (usize, usize, T) {
+) -> usize {
     if i < 0 {
         while i < 0 {
-            node = &list.0[node.0];
+            nodeind = list[nodeind].0;
             i += 1;
         }
-        node
+        0
     } else if i > 0 {
         while i > 0 {
-            node = &list.0[node.1];
+            nodeind = list[nodeind].1;
             i -= 1;
         }
-        node
+        nodeind
     } else {
-        node
+        nodeind
     }
+}
+
+fn insertnode<T>(
+    list: &mut Vec<(usize, usize, T)>,
+    emptyslots: &mut VecDeque<usize>,
+    node: usize,
+    v: T,
+) {
+    let l = list.len();
+    let leftnode = list[node].0;
+    let rightnode = list[node].1;
+    let nnode = (leftnode, rightnode, v);
+    let nind = match emptyslots.pop_front() {
+        Some(i) => i,
+        None => l,
+    };
+    if nind == l {
+        list.push(nnode);
+    }
+    list[leftnode].1 = nind;
+    list[rightnode].0 = nind;
+}
+
+fn removenode<T>(
+    list: &mut Vec<(usize, usize, T)>,
+    emptyslots: &mut VecDeque<usize>,
+    node: usize
+) {
+    emptyslots.push_back(node);
+    list[node].0 = node.1;
+    list[node.1].0 = node.0;
 }
 
 fn part2() {
     const PLAYERS: usize = 463;
     const LASTMARBLE: usize = 71787;
     //
-    let mut marbles = (vec![(0, 0, 0)], VecDeque::<usize>::new());
+    let mut marbles = vec![(0, 0, 0)];
+    let mut emptyslots = VecDeque::<usize>::new();
     //
     let mut scores: Vec<_> = (0..PLAYERS).map(|_| 0).collect();
     //
@@ -69,24 +101,21 @@ fn part2() {
     //
     // for marble in 1..LASTMARBLE + 1 {
     //     if marble % 23 != 0 {
-    //         curmarble = (curmarble + 2) % marbles.len();
-    //         marbles.insert(curmarble, marble);
+    //         curmarble = offsetnode(&marbles, curmarble, 1);
+    //         insertnode(&mut marbles, &mut emptyslots, &mut curmarble, marble);
     //     } else {
     //         scores[marble % PLAYERS] += marble;
-    //         if curmarble < 7 {
-    //             curmarble += marbles.len() - 7;
-    //         } else {
-    //             curmarble -= 7;
-    //         }
-    //         scores[marble % PLAYERS] += marbles.remove(curmarble);
+    //         scores[marble % PLAYERS] += curmarble.2;
+    //         curmarble = offsetnode(&marbles, &curmarble, -7);
+    //         removenode(&mut marbles, &mut emptyslots, &mut curmarble)
     //     }
     // }
-    // let winner = scores
-    //     .into_iter()
-    //     .enumerate()
-    //     .max_by(|(_, a), (_, b)| a.cmp(b))
-    //     .unwrap()
-    //     .1;
-    // //
-    // println!("{}", winner);
+    let winner = scores
+        .into_iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.cmp(b))
+        .unwrap()
+        .1;
+    //
+    println!("{}", winner);
 }
