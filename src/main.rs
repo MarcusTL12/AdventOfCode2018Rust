@@ -3,6 +3,7 @@ mod day10;
 mod day11;
 mod day12;
 mod day13;
+mod day14;
 mod day2;
 mod day3;
 mod day4;
@@ -27,6 +28,7 @@ fn main() {
         day11::PARTS,
         day12::PARTS,
         day13::PARTS,
+        day14::PARTS,
     ];
     let mut args = std::env::args();
     args.next();
@@ -38,10 +40,7 @@ fn main() {
                         if let Some(x) = x.get(y - 1) {
                             let timer = std::time::Instant::now();
                             x();
-                            println!(
-                                "Took {} seconds",
-                                timer.elapsed().as_secs_f32()
-                            );
+                            println!("Took {:?}", timer.elapsed());
                         } else {
                             println!("Not implemented");
                         }
